@@ -1,0 +1,26 @@
+{
+  "cohort": "K3",
+  "starter_repo": "K3-Day9-Multi-Agent-A2A",
+  "policy_version": "EC_POLICY_V1",
+  "model": "llama-3.1-8b-instant",
+  "parameter_size": "8B",
+  "provider": "groq",
+  "framework": "custom multi-agent orchestration (Python stdlib, OpenAI-compatible chat API)",
+  "runtime": "Python 3.13.14 on Windows 11",
+  "agents": [
+    "coordinator",
+    "order_seller",
+    "payment",
+    "delivery",
+    "policy",
+    "verifier"
+  ],
+  "entity_reporting": "evidence",
+  "cause_reporting": "single",
+  "confidence_mode": "max",
+  "cases_processed": 50,
+  "llm_calls": 0,
+  "llm_cache_hits": 200,
+  "llm_failures": 0,
+  "run_seconds": 1.4
+}

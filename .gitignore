@@ -1,0 +1,31 @@
+# Secrets — never commit
+.env
+.env.local
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# LLM response cache (rebuilt on every run)
+.cache/
+.llm_cache/
+
+# Submission artifacts — rebuilt by make_zip.py, not tracked
+*.zip
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+output_precision/
+output_evidence/
+output_minimal/
+output_ranked/
+output_conf1/
