@@ -36,7 +36,7 @@ def run_case(
     store: DataStore,
     client: LLMClient,
     trace,
-    precision: bool = False,
+    precision: str = "wide",
 ) -> tuple[dict, list[str]]:
     case = json.loads(case_path.read_text(encoding="utf-8"))
     case_id = case["case_id"]
@@ -87,8 +87,9 @@ def main() -> int:
     parser.add_argument("--no-cache", action="store_true")
     parser.add_argument(
         "--precision",
-        action="store_true",
-        help="report sellers only when the fired rule implicates them",
+        choices=["wide", "evidence", "strict"],
+        default="wide",
+        help="how much seller reporting to emit; see src/schema.py::build_output",
     )
     parser.add_argument("--out", type=Path, default=None, help="write rulings here instead of output/")
     args = parser.parse_args()
@@ -143,7 +144,7 @@ def main() -> int:
         "framework": "custom multi-agent orchestration (Python stdlib, OpenAI-compatible chat API)",
         "runtime": f"Python {platform.python_version()} on {platform.system()} {platform.release()}",
         "agents": ["coordinator", "order_seller", "payment", "delivery", "policy", "verifier"],
-        "entity_reporting": "precision" if args.precision else "wide",
+        "entity_reporting": args.precision,
         "cases_processed": len(cases),
         "llm_calls": client.calls,
         "llm_cache_hits": client.cache_hits,

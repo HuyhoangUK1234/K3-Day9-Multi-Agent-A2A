@@ -54,30 +54,40 @@ def build_output(
     facts: OrderFacts,
     decision: PolicyDecision,
     confidence: float,
-    precision: bool = False,
+    precision: str = "wide",
 ) -> dict:
     """Assemble one ruling.
 
-    `precision` narrows seller reporting to the sellers the fired rule actually
-    implicates. Under EC_POLICY_V1 only late_delivery_seller names a seller as
-    the responsible party; for a canceled order, a carrier-caused delay, a
-    reconciled split payment or a rejected claim the seller is not implicated
-    at all, so listing every seller on the order inflates the entity and
-    evidence sets with IDs the ruling never rests on.
+    `precision` controls how much seller reporting is emitted:
 
-    The wide behaviour is kept as the default because README section 6 does not
-    define "affected" precisely, and dropping an ID the grader expects costs
-    recall just as an extra one costs precision.
+    - "wide" (default): every seller on the order appears in
+      affected_entities.seller_ids and gets a matching seller: evidence ID.
+    - "evidence": seller_ids stays wide, but a seller: evidence ID is emitted
+      only when the fired rule actually rests on that seller.
+    - "strict": seller_ids is also narrowed to the implicated sellers.
+
+    "wide" is the default because README section 6 derives seller_ids from the
+    item rows — it says seller_ids is empty when the order has no items, which
+    reads as "the sellers on this order", not "the sellers at fault".
+    Responsibility is already carried by root_cause_analysis.responsible_parties.
+
+    "evidence" is the narrower reading that only touches evidence_ids, where
+    README section 5 does talk explicitly about false positives.
     """
     order_id = facts.order_id
 
     # Sellers: name the violating seller first when there is one.
     if decision.late_seller_ids:
         seller_ids = decision.late_seller_ids[:MAX_ENTITY_IDS]
-    elif precision:
+    elif precision == "strict":
         seller_ids = []
     else:
         seller_ids = facts.seller_ids[:MAX_ENTITY_IDS]
+
+    # Sellers worth citing as evidence: only those the ruling rests on.
+    evidence_sellers = seller_ids
+    if precision in {"evidence", "strict"} and not decision.late_seller_ids:
+        evidence_sellers = []
 
     item_ids = [f"{order_id}:{i.order_item_id}" for i in facts.items][:MAX_ENTITY_IDS]
     payment_ids = [f"{order_id}:{p.payment_sequential}" for p in facts.payments][:MAX_ENTITY_IDS]
@@ -89,7 +99,7 @@ def build_output(
         evidence.append(f"item:{order_id}:{item.order_item_id}")
     for payment in facts.payments:
         evidence.append(f"payment:{order_id}:{payment.payment_sequential}")
-    for seller_id in seller_ids:
+    for seller_id in evidence_sellers:
         evidence.append(f"seller:{seller_id}")
     evidence = _dedupe(evidence)[:MAX_EVIDENCE]
 
