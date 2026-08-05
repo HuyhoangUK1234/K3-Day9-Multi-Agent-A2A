@@ -231,7 +231,7 @@ def policy_agent(
     case_id: str,
     facts: OrderFacts,
     upstream: list[Handoff],
-    confidence_mode: str = "calibrated",
+    confidence_mode: str = "max",
 ) -> tuple[Handoff, PolicyDecision, float]:
     truth = decide(facts)
 

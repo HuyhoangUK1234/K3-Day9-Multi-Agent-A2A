@@ -38,7 +38,7 @@ def run_case(
     trace,
     precision: str = "evidence",
     causes: str = "single",
-    confidence_mode: str = "calibrated",
+    confidence_mode: str = "max",
 ) -> tuple[dict, list[str]]:
     case = json.loads(case_path.read_text(encoding="utf-8"))
     case_id = case["case_id"]
@@ -106,8 +106,8 @@ def main() -> int:
     parser.add_argument(
         "--confidence",
         choices=["calibrated", "max"],
-        default="calibrated",
-        help="calibrated = 0.97 on a fully evidenced ruling; max = 1.0",
+        default="max",
+        help="max = 1.0 on a fully evidenced ruling (scored best); calibrated = 0.97",
     )
     parser.add_argument("--out", type=Path, default=None, help="write rulings here instead of output/")
     args = parser.parse_args()
@@ -168,6 +168,7 @@ def main() -> int:
         "agents": ["coordinator", "order_seller", "payment", "delivery", "policy", "verifier"],
         "entity_reporting": args.precision,
         "cause_reporting": args.causes,
+        "confidence_mode": args.confidence,
         "cases_processed": len(cases),
         "llm_calls": client.calls,
         "llm_cache_hits": client.cache_hits,
