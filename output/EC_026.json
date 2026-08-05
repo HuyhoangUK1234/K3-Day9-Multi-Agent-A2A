@@ -37,8 +37,7 @@
     "order:966f96af9d189dc428ff04ebbca821b8",
     "policy:ORDER_CANCELED_AFTER_PAYMENT",
     "item:966f96af9d189dc428ff04ebbca821b8:1",
-    "payment:966f96af9d189dc428ff04ebbca821b8:1",
-    "seller:5f2684dab12e59f83bef73ae57724e45"
+    "payment:966f96af9d189dc428ff04ebbca821b8:1"
   ],
   "financial_resolution": {
     "currency": "BRL",

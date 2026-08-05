@@ -32,8 +32,7 @@
     "order:2478ddd1d1395639b71cf0d498d8dbf6",
     "policy:DELIVERY_WITHIN_ESTIMATE",
     "item:2478ddd1d1395639b71cf0d498d8dbf6:1",
-    "payment:2478ddd1d1395639b71cf0d498d8dbf6:1",
-    "seller:4e17c65a516f69d023a2ae78b84f28d6"
+    "payment:2478ddd1d1395639b71cf0d498d8dbf6:1"
   ],
   "financial_resolution": {
     "currency": "BRL",

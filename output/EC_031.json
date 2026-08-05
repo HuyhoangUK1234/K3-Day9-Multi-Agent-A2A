@@ -37,8 +37,7 @@
     "order:4274ff4a5df607e75b32b80e2f8eda3f",
     "policy:CARRIER_DELIVERED_AFTER_ESTIMATE",
     "item:4274ff4a5df607e75b32b80e2f8eda3f:1",
-    "payment:4274ff4a5df607e75b32b80e2f8eda3f:1",
-    "seller:88ae906ea2acf6971f26c3e8b7cb4357"
+    "payment:4274ff4a5df607e75b32b80e2f8eda3f:1"
   ],
   "financial_resolution": {
     "currency": "BRL",

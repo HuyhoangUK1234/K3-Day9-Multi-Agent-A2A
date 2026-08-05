@@ -34,8 +34,7 @@
     "policy:MULTIPLE_PAYMENTS_RECONCILED",
     "item:6b27933c6a46e3d66203137ad1fdb678:1",
     "payment:6b27933c6a46e3d66203137ad1fdb678:1",
-    "payment:6b27933c6a46e3d66203137ad1fdb678:2",
-    "seller:46dc3b2cc0980fb8ec44634e21d2718e"
+    "payment:6b27933c6a46e3d66203137ad1fdb678:2"
   ],
   "financial_resolution": {
     "currency": "BRL",

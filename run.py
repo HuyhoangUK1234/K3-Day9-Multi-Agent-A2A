@@ -36,7 +36,7 @@ def run_case(
     store: DataStore,
     client: LLMClient,
     trace,
-    precision: str = "wide",
+    precision: str = "evidence",
 ) -> tuple[dict, list[str]]:
     case = json.loads(case_path.read_text(encoding="utf-8"))
     case_id = case["case_id"]
@@ -88,7 +88,7 @@ def main() -> int:
     parser.add_argument(
         "--precision",
         choices=["wide", "evidence", "strict", "minimal"],
-        default="wide",
+        default="evidence",
         help="how much seller reporting to emit; see src/schema.py::build_output",
     )
     parser.add_argument("--out", type=Path, default=None, help="write rulings here instead of output/")

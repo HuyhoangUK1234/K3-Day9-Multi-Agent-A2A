@@ -32,8 +32,7 @@
     "order:5fba7c57daf631028d2a584c52799e24",
     "policy:DELIVERY_WITHIN_ESTIMATE",
     "item:5fba7c57daf631028d2a584c52799e24:1",
-    "payment:5fba7c57daf631028d2a584c52799e24:1",
-    "seller:1f50f920176fa81dab994f9023523100"
+    "payment:5fba7c57daf631028d2a584c52799e24:1"
   ],
   "financial_resolution": {
     "currency": "BRL",

@@ -37,8 +37,7 @@
     "order:64a8b3b4c19751b51d211deb32fdc67b",
     "policy:ORDER_CANCELED_AFTER_PAYMENT",
     "item:64a8b3b4c19751b51d211deb32fdc67b:1",
-    "payment:64a8b3b4c19751b51d211deb32fdc67b:1",
-    "seller:fc5a0d7a310a7a41abf86a458585ff2b"
+    "payment:64a8b3b4c19751b51d211deb32fdc67b:1"
   ],
   "financial_resolution": {
     "currency": "BRL",
