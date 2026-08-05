@@ -33,14 +33,14 @@ per ticket.
 
 ## 2. Roles, data access and authority
 
-| Agent | Reads | Decides | Cannot touch |
-| ----- | ----- | ------- | ------------ |
-| Coordinator | `input/`, `orders` | which agents run, final assembly | policy outcome |
-| Order & Seller | `orders`, `order_items`, `sellers` | order state, which seller missed its handoff limit | payments, delivery verdict |
-| Payment | `order_payments`, `order_items` | whether payments reconcile against item + freight | delivery dates, policy outcome |
-| Delivery | `orders`, `order_items` | delivered-after-estimate, carrier-vs-shipping-limit | money amounts |
-| Policy | the three handoff packets + derived facts | `primary_issue`, root cause, responsible party, refund | raw CSV access |
-| Verifier | assembled JSON, `DataStore` | pass / fail before the file is written | changing the ruling |
+| Agent          | Reads                                     | Decides                                                  | Cannot touch                   |
+| -------------- | ----------------------------------------- | -------------------------------------------------------- | ------------------------------ |
+| Coordinator    | `input/`, `orders`                    | which agents run, final assembly                         | policy outcome                 |
+| Order & Seller | `orders`, `order_items`, `sellers`  | order state, which seller missed its handoff limit       | payments, delivery verdict     |
+| Payment        | `order_payments`, `order_items`       | whether payments reconcile against item + freight        | delivery dates, policy outcome |
+| Delivery       | `orders`, `order_items`               | delivered-after-estimate, carrier-vs-shipping-limit      | money amounts                  |
+| Policy         | the three handoff packets + derived facts | `primary_issue`, root cause, responsible party, refund | raw CSV access                 |
+| Verifier       | assembled JSON,`DataStore`              | pass / fail before the file is written                   | changing the ruling            |
 
 Each domain agent sees only its slice. The Policy Agent never reads CSVs
 directly — it works from what upstream handed it, which is what makes the
@@ -152,11 +152,11 @@ fixed at its cause, never patched by hand.
 All agents share one model, at or under 10B parameters. Selected after
 benchmarking on this machine (RTX 5060 Laptop, 8 GB VRAM):
 
-| Provider | Model | Params | Measured | Role |
-| -------- | ----- | -----: | -------- | ---- |
-| Groq | `llama-3.1-8b-instant` | 8B | 0.65 s/call | primary |
-| LM Studio (local) | `qwen/qwen3-1.7b` | 1.7B | 24.7 tok/s | offline fallback |
-| Mistral | `ministral-3-8b-25-12` | 8B | — | API fallback |
+| Provider          | Model                    | Params | Measured    | Role             |
+| ----------------- | ------------------------ | -----: | ----------- | ---------------- |
+| Groq              | `llama-3.1-8b-instant` |     8B | 0.65 s/call | primary          |
+| LM Studio (local) | `qwen/qwen3-1.7b`      |   1.7B | 24.7 tok/s  | offline fallback |
+| Mistral           | `ministral-3-8b-25-12` |     8B | —          | API fallback     |
 
 `google/gemma-4-e4b` (7.5B) was benchmarked and rejected: the locally available
 Q6_K build is 7.21 GB and does not fit in 7.96 GB of VRAM alongside the KV
@@ -172,3 +172,19 @@ python run.py                # all 50 cases through the full agent team
 python run.py --limit 3      # smoke test
 python run.py --no-llm       # deterministic only, no network
 ```
+
+**Diff giữa hai bộ output cho ra đúng hai chỗ lệch, không hơn:**
+
+Tớ so từng trường của 50 case. 10 trong 12 trường trùng khít — primary_issue, case_status, cả 4 danh sách entity, root cause, responsible parties, actions, cả 4 con số tiền. Nghĩa là bảng luật và phần tính toán của `tien` vốn đã đúng. Chỉ lệch:
+
+1. **`confidence`: 0.95 với 1.0** ở cả 50 case.
+2. **`evidence_ids`: thừa 34 ID `seller:`** — đúng 34 case mà seller không có lỗi (50 trừ 8 case seller bàn giao muộn, trừ 8 đơn `unavailable` vốn không có seller nào).
+
+Ngoài ra 16 case chỉ khác thứ tự evidence (bản 100 điểm đặt `policy:` ngay sau `order:`), tập ID giống hệt.
+
+**Điều này lật ngược một giả định của tớ.** Tớ đã nghĩ evidence chấm theo độ phủ nên nhồi càng nhiều ID hợp lệ càng tốt. Sai. Hai trường mang ID được chấm ngược nhau:
+
+* `affected_entities` chấm theo **độ phủ** — nên `seller_ids` vẫn phải liệt kê đủ seller của đơn, kể cả khi seller không có lỗi.
+* `evidence_ids` chấm theo **độ chính xác** — ID có thật trong CSV nhưng kết luận không dựa vào nó vẫn bị trừ. README mục 5 chỉ nói ID không tồn tại hoặc sai định dạng mới bị tính false positive, nhưng thực tế thang chấm khắt khe hơn thế.
+
+Và `confidence` được thưởng thẳng chứ không phạt việc khai chắc chắn — nên khai đủ 1.0 khi dữ liệu đủ.
