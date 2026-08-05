@@ -49,32 +49,8 @@ ORDER_SYSTEM = (
 
 
 def order_seller_agent(client: LLMClient, case_id: str, facts: OrderFacts) -> Handoff:
-    """Đánh giá trạng thái đơn hàng và kiểm tra seller nào bàn giao trễ so với shipping_limit_date."""
     late_sellers = facts.late_sellers()
-
-    payload = _build_order_payload(facts, late_sellers)
-
-    raw = client.chat(ORDER_SYSTEM, json.dumps(payload, ensure_ascii=False), max_tokens=200)
-    parsed = parse_json_object(raw)
-
-    missing = _collect_missing_facts(facts) + list(parsed.get("missing", []) or [])
-    evidence = _build_evidence_ids(facts, late_sellers)
-
-    return Handoff(
-        agent="order_seller",
-        ticket_id=case_id,
-        question="What is the order state and did any seller hand off after its shipping limit?",
-        facts={**payload, "agent_view": parsed.get("seller_handoff", "unknown")},
-        evidence_ids=evidence,
-        missing=missing,
-        next_suggestion=parsed.get("next_suggestion", "hand to delivery agent"),
-        llm_raw=raw,
-    )
-
-
-def _build_order_payload(facts: OrderFacts, late_sellers: list) -> dict:
-    """Chuẩn bị dữ liệu tóm tắt gửi cho LLM."""
-    return {
+    payload = {
         "order_id": facts.order_id,
         "found_in_dataset": facts.exists,
         "order_status": facts.order_status,
@@ -82,19 +58,15 @@ def _build_order_payload(facts: OrderFacts, late_sellers: list) -> dict:
         "seller_ids": facts.seller_ids[:5],
         "delivered_carrier_date": _iso(facts.delivered_carrier_at),
         "shipping_limits": [
-            {
-                "order_item_id": item.order_item_id,
-                "seller_id": item.seller_id,
-                "shipping_limit_date": _iso(item.shipping_limit_date),
-            }
-            for item in facts.items[:5]
+            {"order_item_id": i.order_item_id, "seller_id": i.seller_id,
+             "shipping_limit_date": _iso(i.shipping_limit_date)}
+            for i in facts.items[:5]
         ],
         "sellers_past_limit": late_sellers,
     }
+    raw = client.chat(ORDER_SYSTEM, json.dumps(payload, ensure_ascii=False), max_tokens=200)
+    parsed = parse_json_object(raw)
 
-
-def _collect_missing_facts(facts: OrderFacts) -> list[str]:
-    """Liệt kê các dữ liệu còn thiếu/không nhất quán trong OrderFacts."""
     missing: list[str] = []
     if not facts.exists:
         missing.append("order_id not present in olist_orders_dataset")
@@ -102,15 +74,23 @@ def _collect_missing_facts(facts: OrderFacts) -> list[str]:
         missing.append("order has no item rows")
     if facts.delivered_carrier_at is None:
         missing.append("order_delivered_carrier_date is empty")
-    return missing
 
-
-def _build_evidence_ids(facts: OrderFacts, late_sellers: list) -> list[str]:
-    """Xây danh sách evidence_ids để trích dẫn lại nguồn dữ liệu."""
-    evidence: list[str] = [f"order:{facts.order_id}"] if facts.exists else []
-    evidence += [f"item:{facts.order_id}:{item.order_item_id}" for item in facts.items[:5]]
+    evidence = [f"order:{facts.order_id}"] if facts.exists else []
+    evidence += [f"item:{facts.order_id}:{i.order_item_id}" for i in facts.items[:5]]
     evidence += [f"seller:{s}" for s in (late_sellers or facts.seller_ids)[:3]]
-    return evidence
+
+    return Handoff(
+        agent="order_seller",
+        ticket_id=case_id,
+        question="What is the order state and did any seller hand off after its shipping limit?",
+        facts={**payload, "agent_view": parsed.get("seller_handoff", "unknown")},
+        evidence_ids=evidence,
+        missing=missing + list(parsed.get("missing", []) or []),
+        next_suggestion=parsed.get("next_suggestion", "hand to delivery agent"),
+        llm_raw=raw,
+    )
+
+
 # --------------------------------------------------------------------------
 # Payment Agent
 # --------------------------------------------------------------------------
@@ -121,7 +101,6 @@ PAYMENT_SYSTEM = (
     'Reply ONLY with JSON: {"reconciled":true|false,"split_payment":true|false,'
     '"missing":[],"next_suggestion":"..."}'
 )
-
 
 def payment_agent(client: LLMClient, case_id: str, facts: OrderFacts) -> Handoff:
     payload = {
