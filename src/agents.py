@@ -231,6 +231,7 @@ def policy_agent(
     case_id: str,
     facts: OrderFacts,
     upstream: list[Handoff],
+    confidence_mode: str = "calibrated",
 ) -> tuple[Handoff, PolicyDecision, float]:
     truth = decide(facts)
 
@@ -265,7 +266,8 @@ def policy_agent(
         confidence = 0.40
     else:
         blocking = _blocking_gaps(facts, truth)
-        confidence = 0.80 if blocking else 0.97
+        clean = 1.0 if confidence_mode == "max" else 0.97
+        confidence = 0.80 if blocking else clean
 
     handoff = Handoff(
         agent="policy",

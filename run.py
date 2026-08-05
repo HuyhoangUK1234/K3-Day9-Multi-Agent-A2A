@@ -38,6 +38,7 @@ def run_case(
     trace,
     precision: str = "evidence",
     causes: str = "single",
+    confidence_mode: str = "calibrated",
 ) -> tuple[dict, list[str]]:
     case = json.loads(case_path.read_text(encoding="utf-8"))
     case_id = case["case_id"]
@@ -63,7 +64,9 @@ def run_case(
     for handoff in upstream:
         trace.write(json.dumps({"event": "handoff", **handoff.to_dict()}, ensure_ascii=False) + "\n")
 
-    policy_handoff, decision, confidence = policy_agent(client, case_id, facts, upstream)
+    policy_handoff, decision, confidence = policy_agent(
+        client, case_id, facts, upstream, confidence_mode=confidence_mode
+    )
     trace.write(json.dumps({"event": "handoff", **policy_handoff.to_dict()}, ensure_ascii=False) + "\n")
 
     payload = build_output(
@@ -100,6 +103,12 @@ def main() -> int:
         default="single",
         help="single = only the fired rule's cause; ranked = plus any other true cause",
     )
+    parser.add_argument(
+        "--confidence",
+        choices=["calibrated", "max"],
+        default="calibrated",
+        help="calibrated = 0.97 on a fully evidenced ruling; max = 1.0",
+    )
     parser.add_argument("--out", type=Path, default=None, help="write rulings here instead of output/")
     args = parser.parse_args()
 
@@ -133,6 +142,7 @@ def main() -> int:
             payload, problems = run_case(
                 case_path, store, client, trace,
                 precision=args.precision, causes=args.causes,
+                confidence_mode=args.confidence,
             )
             (out_dir / case_path.name).write_text(
                 json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
