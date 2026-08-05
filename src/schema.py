@@ -65,6 +65,10 @@ def build_output(
     - "evidence": seller_ids stays wide, but a seller: evidence ID is emitted
       only when the fired rule actually rests on that seller.
     - "strict": seller_ids is also narrowed to the implicated sellers.
+    - "minimal": on top of "strict", evidence is cut to the rows the fired rule
+      actually reads — no item evidence on a canceled order (the rule reads
+      status and payments), no payment evidence on a late delivery (the rule
+      reads timestamps and freight).
 
     "wide" is the default because README section 6 derives seller_ids from the
     item rows — it says seller_ids is empty when the order has no items, which
@@ -79,15 +83,23 @@ def build_output(
     # Sellers: name the violating seller first when there is one.
     if decision.late_seller_ids:
         seller_ids = decision.late_seller_ids[:MAX_ENTITY_IDS]
-    elif precision == "strict":
+    elif precision in {"strict", "minimal"}:
         seller_ids = []
     else:
         seller_ids = facts.seller_ids[:MAX_ENTITY_IDS]
 
     # Sellers worth citing as evidence: only those the ruling rests on.
     evidence_sellers = seller_ids
-    if precision in {"evidence", "strict"} and not decision.late_seller_ids:
+    if precision != "wide" and not decision.late_seller_ids:
         evidence_sellers = []
+
+    # Which row types the fired rule actually reads.
+    cite_items = cite_payments = True
+    if precision == "minimal":
+        if decision.primary_issue in {"canceled_order_paid", "unavailable_order_paid"}:
+            cite_items = False          # refund is sized from payments alone
+        elif decision.primary_issue in {"late_delivery_seller", "late_delivery_logistics"}:
+            cite_payments = False       # refund is sized from item freight alone
 
     item_ids = [f"{order_id}:{i.order_item_id}" for i in facts.items][:MAX_ENTITY_IDS]
     payment_ids = [f"{order_id}:{p.payment_sequential}" for p in facts.payments][:MAX_ENTITY_IDS]
@@ -95,10 +107,12 @@ def build_output(
     # Evidence, most probative first, hard-capped at MAX_EVIDENCE.
     evidence: list[str] = [f"order:{order_id}"] if facts.exists else []
     evidence.append(f"policy:{decision.cause_code}")
-    for item in facts.items:
-        evidence.append(f"item:{order_id}:{item.order_item_id}")
-    for payment in facts.payments:
-        evidence.append(f"payment:{order_id}:{payment.payment_sequential}")
+    if cite_items:
+        for item in facts.items:
+            evidence.append(f"item:{order_id}:{item.order_item_id}")
+    if cite_payments:
+        for payment in facts.payments:
+            evidence.append(f"payment:{order_id}:{payment.payment_sequential}")
     for seller_id in evidence_sellers:
         evidence.append(f"seller:{seller_id}")
     evidence = _dedupe(evidence)[:MAX_EVIDENCE]

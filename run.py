@@ -87,7 +87,7 @@ def main() -> int:
     parser.add_argument("--no-cache", action="store_true")
     parser.add_argument(
         "--precision",
-        choices=["wide", "evidence", "strict"],
+        choices=["wide", "evidence", "strict", "minimal"],
         default="wide",
         help="how much seller reporting to emit; see src/schema.py::build_output",
     )
