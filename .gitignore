@@ -24,3 +24,5 @@ output.zip
 Thumbs.db
 .vscode/
 .idea/
+
+output_precision/

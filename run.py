@@ -31,7 +31,13 @@ TRACE_PATH = LOG_DIR / "trace.jsonl"
 METADATA_PATH = LOG_DIR / "metadata.json"
 
 
-def run_case(case_path: Path, store: DataStore, client: LLMClient, trace) -> tuple[dict, list[str]]:
+def run_case(
+    case_path: Path,
+    store: DataStore,
+    client: LLMClient,
+    trace,
+    precision: bool = False,
+) -> tuple[dict, list[str]]:
     case = json.loads(case_path.read_text(encoding="utf-8"))
     case_id = case["case_id"]
     claimed_order_id = case.get("customer_request", {}).get("claimed_order_id", "")
@@ -59,7 +65,7 @@ def run_case(case_path: Path, store: DataStore, client: LLMClient, trace) -> tup
     policy_handoff, decision, confidence = policy_agent(client, case_id, facts, upstream)
     trace.write(json.dumps({"event": "handoff", **policy_handoff.to_dict()}, ensure_ascii=False) + "\n")
 
-    payload = build_output(case_id, facts, decision, confidence)
+    payload = build_output(case_id, facts, decision, confidence, precision=precision)
     problems = verify(payload, store)
     trace.write(json.dumps({
         "ticket_id": case_id,
@@ -79,7 +85,15 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=0, help="process only the first N cases")
     parser.add_argument("--no-llm", action="store_true", help="deterministic only, skip all LLM calls")
     parser.add_argument("--no-cache", action="store_true")
+    parser.add_argument(
+        "--precision",
+        action="store_true",
+        help="report sellers only when the fired rule implicates them",
+    )
+    parser.add_argument("--out", type=Path, default=None, help="write rulings here instead of output/")
     args = parser.parse_args()
+
+    out_dir = args.out or OUTPUT_DIR
 
     cases = sorted(INPUT_DIR.glob("EC_*.json"))
     if args.limit:
@@ -97,7 +111,7 @@ def main() -> int:
     if args.no_llm:
         client.chat = lambda *a, **k: ""  # type: ignore[method-assign]
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
     LOG_DIR.mkdir(parents=True, exist_ok=True)
 
     failures: list[str] = []
@@ -106,8 +120,8 @@ def main() -> int:
     # "w" not "a": the trace holds the latest run only.
     with TRACE_PATH.open("w", encoding="utf-8") as trace:
         for index, case_path in enumerate(cases, start=1):
-            payload, problems = run_case(case_path, store, client, trace)
-            (OUTPUT_DIR / case_path.name).write_text(
+            payload, problems = run_case(case_path, store, client, trace, precision=args.precision)
+            (out_dir / case_path.name).write_text(
                 json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
             )
             issue = payload["assessment"]["primary_issue"]
@@ -129,6 +143,7 @@ def main() -> int:
         "framework": "custom multi-agent orchestration (Python stdlib, OpenAI-compatible chat API)",
         "runtime": f"Python {platform.python_version()} on {platform.system()} {platform.release()}",
         "agents": ["coordinator", "order_seller", "payment", "delivery", "policy", "verifier"],
+        "entity_reporting": "precision" if args.precision else "wide",
         "cases_processed": len(cases),
         "llm_calls": client.calls,
         "llm_cache_hits": client.cache_hits,
