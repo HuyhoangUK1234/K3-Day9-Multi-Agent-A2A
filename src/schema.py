@@ -22,7 +22,7 @@ from .config import (
     MAX_ROOT_CAUSES,
 )
 from .data_store import DataStore, OrderFacts
-from .policy import PolicyDecision
+from .policy import PolicyDecision, ranked_causes
 
 VALID_ISSUES = {
     "canceled_order_paid",
@@ -55,6 +55,7 @@ def build_output(
     decision: PolicyDecision,
     confidence: float,
     precision: str = "evidence",
+    causes: str = "single",
 ) -> dict:
     """Assemble one ruling.
 
@@ -128,6 +129,13 @@ def build_output(
         evidence.append(f"seller:{seller_id}")
     evidence = _dedupe(evidence)[:MAX_EVIDENCE]
 
+    # "single" names only the cause of the rule that fired. "ranked" adds any
+    # other cause code that is also factually true, at rank 2 and 3.
+    if causes == "ranked":
+        cause_codes = ranked_causes(facts, decision, MAX_ROOT_CAUSES)
+    else:
+        cause_codes = [decision.cause_code]
+
     responsible: list[dict] = []
     if decision.party_type and decision.party_id:
         responsible.append({"party_type": decision.party_type, "party_id": decision.party_id})
@@ -146,7 +154,10 @@ def build_output(
             "payment_ids": payment_ids,
         },
         "root_cause_analysis": {
-            "ranked_causes": [{"cause_code": decision.cause_code, "rank": 1}],
+            "ranked_causes": [
+                {"cause_code": code, "rank": rank}
+                for rank, code in enumerate(cause_codes, start=1)
+            ],
             "responsible_parties": responsible[:MAX_RESPONSIBLE_PARTIES],
         },
         "evidence_ids": evidence,

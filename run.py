@@ -37,6 +37,7 @@ def run_case(
     client: LLMClient,
     trace,
     precision: str = "evidence",
+    causes: str = "single",
 ) -> tuple[dict, list[str]]:
     case = json.loads(case_path.read_text(encoding="utf-8"))
     case_id = case["case_id"]
@@ -65,7 +66,9 @@ def run_case(
     policy_handoff, decision, confidence = policy_agent(client, case_id, facts, upstream)
     trace.write(json.dumps({"event": "handoff", **policy_handoff.to_dict()}, ensure_ascii=False) + "\n")
 
-    payload = build_output(case_id, facts, decision, confidence, precision=precision)
+    payload = build_output(
+        case_id, facts, decision, confidence, precision=precision, causes=causes
+    )
     problems = verify(payload, store)
     trace.write(json.dumps({
         "ticket_id": case_id,
@@ -90,6 +93,12 @@ def main() -> int:
         choices=["wide", "evidence", "strict", "minimal"],
         default="evidence",
         help="how much seller reporting to emit; see src/schema.py::build_output",
+    )
+    parser.add_argument(
+        "--causes",
+        choices=["single", "ranked"],
+        default="single",
+        help="single = only the fired rule's cause; ranked = plus any other true cause",
     )
     parser.add_argument("--out", type=Path, default=None, help="write rulings here instead of output/")
     args = parser.parse_args()
@@ -121,7 +130,10 @@ def main() -> int:
     # "w" not "a": the trace holds the latest run only.
     with TRACE_PATH.open("w", encoding="utf-8") as trace:
         for index, case_path in enumerate(cases, start=1):
-            payload, problems = run_case(case_path, store, client, trace, precision=args.precision)
+            payload, problems = run_case(
+                case_path, store, client, trace,
+                precision=args.precision, causes=args.causes,
+            )
             (out_dir / case_path.name).write_text(
                 json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
             )
@@ -145,6 +157,7 @@ def main() -> int:
         "runtime": f"Python {platform.python_version()} on {platform.system()} {platform.release()}",
         "agents": ["coordinator", "order_seller", "payment", "delivery", "policy", "verifier"],
         "entity_reporting": args.precision,
+        "cause_reporting": args.causes,
         "cases_processed": len(cases),
         "llm_calls": client.calls,
         "llm_cache_hits": client.cache_hits,

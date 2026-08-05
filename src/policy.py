@@ -33,6 +33,37 @@ class PolicyDecision:
         return "action_required" if self.refund_brl > 0 else "no_action"
 
 
+def true_causes(facts: OrderFacts) -> list[str]:
+    """Every root-cause code that is factually true for this order.
+
+    A ruling names one cause because one rule fires, but more than one code can
+    hold at once: an order can be handed off late AND delivered after the
+    estimate, and a reconciled split payment is also, separately, a delivery
+    that landed within its estimate.
+    """
+    out: list[str] = []
+    if facts.late_sellers():
+        out.append("SELLER_HANDOFF_AFTER_LIMIT")
+    if facts.delivered_late:
+        out.append("CARRIER_DELIVERED_AFTER_ESTIMATE")
+    if facts.order_status == "canceled" and facts.payment_total > 0:
+        out.append("ORDER_CANCELED_AFTER_PAYMENT")
+    if facts.order_status == "unavailable" and facts.payment_total > 0:
+        out.append("ORDER_UNAVAILABLE_AFTER_PAYMENT")
+    if len(facts.payments) >= 2 and facts.payment_reconciles(SPLIT_PAYMENT_TOLERANCE):
+        out.append("MULTIPLE_PAYMENTS_RECONCILED")
+    if facts.delivered_customer_at is not None and not facts.delivered_late:
+        out.append("DELIVERY_WITHIN_ESTIMATE")
+    return out
+
+
+def ranked_causes(facts: OrderFacts, decision: "PolicyDecision", limit: int = 3) -> list[str]:
+    """The fired rule's cause first, then any other code that also holds."""
+    ordered = [decision.cause_code]
+    ordered += [c for c in true_causes(facts) if c != decision.cause_code]
+    return ordered[:limit]
+
+
 def decide(facts: OrderFacts) -> PolicyDecision:
     payment_total = facts.payment_total
     freight_total = facts.freight_total
