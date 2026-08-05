@@ -1,0 +1,7 @@
+{
+  "model_name": "gpt-4o-mini",
+  "model_parameter_size": "<=10B",
+  "framework": "python",
+  "runtime": "local",
+  "policy_version": "EC_POLICY_V1"
+}

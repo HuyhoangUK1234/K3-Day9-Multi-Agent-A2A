@@ -1,0 +1,45 @@
+{
+  "case_id": "EC_010",
+  "assessment": {
+    "primary_issue": "unsupported_late_claim",
+    "case_status": "no_action",
+    "confidence": 0.85
+  },
+  "affected_entities": {
+    "order_ids": [
+      "3a119f52de09d1b2700815732def8b47"
+    ],
+    "item_ids": [
+      "3a119f52de09d1b2700815732def8b47:1"
+    ],
+    "seller_ids": [
+      "891071be6ba827b591264c90c2ae8a63"
+    ],
+    "payment_ids": [
+      "3a119f52de09d1b2700815732def8b47:1"
+    ]
+  },
+  "root_cause_analysis": {
+    "ranked_causes": [
+      {
+        "cause_code": "DELIVERY_WITHIN_ESTIMATE",
+        "rank": 1
+      }
+    ],
+    "responsible_parties": []
+  },
+  "evidence_ids": [
+    "order:3a119f52de09d1b2700815732def8b47",
+    "policy:DELIVERY_WITHIN_ESTIMATE"
+  ],
+  "financial_resolution": {
+    "currency": "BRL",
+    "item_total_brl": 19.99,
+    "freight_total_brl": 7.78,
+    "payment_total_brl": 27.77,
+    "recommended_refund_brl": 0.0
+  },
+  "resolution_actions": [
+    "reject_late_refund"
+  ]
+}
