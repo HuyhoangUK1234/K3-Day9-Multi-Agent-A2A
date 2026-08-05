@@ -22,6 +22,12 @@ from src.tools.scoped import ScopedView, delivery_facts, order_seller_facts, pay
 
 FAILURES: list[str] = []
 
+# Console Windows mặc định cp1252, in tiếng Việt vào đó là crash giữa chừng.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except (AttributeError, ValueError):
+    pass
+
 
 def check(name: str, condition: bool, detail: str = "") -> None:
     if condition:
@@ -142,7 +148,7 @@ def test_no_items():
     check("item_total = 0.0", out["financial_resolution"]["item_total_brl"] == 0.0)
     check("freight_total = 0.0", out["financial_resolution"]["freight_total_brl"] == 0.0)
     check("confidence không bị hạ vì thiếu item",
-          out["assessment"]["confidence"] == 0.95, str(out["assessment"]["confidence"]))
+          out["assessment"]["confidence"] == 1.0, str(out["assessment"]["confidence"]))
 
 
 # ------------------------------------------------------------------ đối soát tiền
@@ -185,27 +191,40 @@ def test_money():
 def test_evidence():
     print("\n[5] Evidence ID")
 
-    f = facts(items=[{"order_item_id": i, "seller_id": f"s{i}", "price": Decimal("10.00"),
-                      "freight_value": Decimal("1.00"), "shipping_limit_date": "2018-01-01 00:00:00"}
-                     for i in range(1, 7)],
-              item_ids=[f"o1:{i}" for i in range(1, 7)],
-              seller_ids=[f"s{i}" for i in range(1, 7)],
-              payments=[{"payment_sequential": i, "payment_type": "credit_card",
-                         "payment_installments": 1, "payment_value": Decimal("10.00")}
-                        for i in range(1, 6)],
-              payment_ids=[f"o1:{i}" for i in range(1, 6)],
-              payment_count=5)
-    v = rules.evaluate(f)
-    evidence = rules.build_evidence_ids(f, v)
+    many = facts(items=[{"order_item_id": i, "seller_id": f"s{i}", "price": Decimal("10.00"),
+                         "freight_value": Decimal("1.00"), "shipping_limit_date": "2018-01-01 00:00:00"}
+                        for i in range(1, 7)],
+                 item_ids=[f"o1:{i}" for i in range(1, 7)],
+                 seller_ids=[f"s{i}" for i in range(1, 7)],
+                 payments=[{"payment_sequential": i, "payment_type": "credit_card",
+                            "payment_installments": 1, "payment_value": Decimal("10.00")}
+                           for i in range(1, 6)],
+                 payment_ids=[f"o1:{i}" for i in range(1, 6)],
+                 payment_count=5)
+    v = rules.evaluate(many)
+    evidence = rules.build_evidence_ids(many, v)
 
     check("không vượt 10 evidence", len(evidence) <= MAX_EVIDENCE, str(len(evidence)))
-    check("luôn có order", evidence[0].startswith("order:"))
-    check("luôn có policy", evidence[-1].startswith("policy:"))
-    check("đủ cả 3 loại item/payment/seller khi đơn nhiều dòng",
-          all(any(e.startswith(k) for e in evidence) for k in ("item:", "payment:", "seller:")),
+    check("order đứng đầu", evidence[0].startswith("order:"))
+    check("policy đứng ngay sau order", evidence[1].startswith("policy:"))
+    check("đơn nhiều dòng vẫn có cả item lẫn payment",
+          all(any(e.startswith(k) for e in evidence) for k in ("item:", "payment:")),
           str(evidence))
 
-    out = rules.build_output("EC_TEST", f, v, 0.95)
+    # evidence_ids chấm theo độ chính xác: seller không có lỗi thì không trích.
+    check("không trích seller khi seller không chịu trách nhiệm",
+          not any(e.startswith("seller:") for e in evidence), str(evidence))
+
+    late = facts(is_late=True, seller_handoff_late=True, late_seller_ids=["s1"])
+    v_late = rules.evaluate(late)
+    ev_late = rules.build_evidence_ids(late, v_late)
+    check("có trích seller khi seller bàn giao muộn",
+          "seller:s1" in ev_late, str(ev_late))
+
+    # affected_entities chấm theo độ phủ: seller_ids vẫn liệt kê đủ.
+    out = rules.build_output("EC_TEST", many, v, 1.0)
+    check("seller_ids vẫn liệt kê dù seller không có lỗi",
+          out["affected_entities"]["seller_ids"] != [], str(out["affected_entities"]["seller_ids"]))
     for key in ("item_ids", "seller_ids", "payment_ids"):
         check(f"{key} không vượt 5", len(out["affected_entities"][key]) <= 5)
 
@@ -234,14 +253,14 @@ def test_real_dataset():
         problems = validate(out, data, f)
         if problems:
             bad_schema.append(f"{case['case_id']}: {problems}")
-        if out["assessment"]["confidence"] < 0.95:
+        if out["assessment"]["confidence"] < 1.0:
             low_conf.append(f"{case['case_id']}={out['assessment']['confidence']}")
         issues[v["primary_issue"]] = issues.get(v["primary_issue"], 0) + 1
 
     check("mọi output đạt schema", not bad_schema, "; ".join(bad_schema[:3]))
     check("phủ đủ 6 nhánh nghiệp vụ", len(issues) == 6, str(issues))
     check("tổng đúng 50 case", sum(issues.values()) == 50, str(sum(issues.values())))
-    check("không case nào confidence dưới 0.95", not low_conf, ", ".join(low_conf))
+    check("cả 50 case đều confidence 1.0", not low_conf, ", ".join(low_conf))
 
     # Nhóm câu khiếu nại phải khớp nhóm kết luận: 25 case than trễ, 16 case
     # than đã trả tiền mà đơn không hoàn tất, 9 case sợ bị thu trùng.

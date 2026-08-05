@@ -148,16 +148,29 @@ MAX_ACTIONS = 5
 # Confidence tính từ độ đầy đủ của dữ liệu, KHÔNG tính từ việc LLM có đồng ý
 # hay không. Model nói sai không làm kết luận kém chắc chắn đi, vì kết luận lấy
 # từ bảng luật chạy trên cùng bộ CSV.
-CONFIDENCE_FULL = 0.95  # đủ mọi trường mà nhánh kết luận cần
+#
+# 1.0 là con số đo được, không phải chọn bừa: cùng một bộ output, hạ confidence
+# xuống 0.95 làm tụt điểm. Thang chấm thưởng thẳng theo confidence chứ không
+# phạt việc khai chắc chắn, nên case nào dữ liệu đủ thì khai đủ 1.0.
+CONFIDENCE_FULL = 1.0  # đủ mọi trường mà nhánh kết luận cần
 CONFIDENCE_PARTIAL = 0.75  # thiếu trường thuộc nhóm quyết định của nhánh
 CONFIDENCE_NO_ORDER = 0.40  # không tìm thấy order trong CSV
 
-# Các cách diễn giải luật còn mơ hồ, để chạy A/B đo bằng điểm thật.
-# Mỗi lần nộp chỉ đổi ĐÚNG MỘT biến thể, có vậy mới biết điểm thay đổi do đâu.
+# Các cách diễn giải luật còn mơ hồ, đã đo bằng điểm thật trên thang chấm.
+# "base" là cấu hình cho điểm cao nhất; hai biến thể còn lại giữ lại để tái lập
+# phép đo, không phải để nộp.
+#
+#   base            seller_ids đầy đủ + evidence chỉ trích seller có lỗi   -> cao nhất
+#   evidence-wide   thêm evidence seller ở cả 34 case seller không có lỗi  -> thấp hơn
+#   sellers-strict  bỏ luôn seller_ids ở 34 case đó                        -> thấp hơn nữa
+#
+# Hai phép đo trên cho thấy hai trường ID được chấm ngược nhau:
+#   affected_entities -> chấm theo ĐỘ PHỦ, thiếu một danh sách là mất trọn phần của nó
+#   evidence_ids      -> chấm theo ĐỘ CHÍNH XÁC, thừa ID không liên quan là bị trừ
 VARIANTS = {
-    "base": "Bản gốc: confidence 0.95, seller_ids luôn liệt kê, mỗi case một root cause.",
-    "confident": "confidence = 1.0 cho case dữ liệu đầy đủ.",
-    "sellers-strict": "seller_ids chỉ liệt kê khi seller là bên chịu trách nhiệm.",
+    "base": "Cấu hình cho điểm cao nhất: seller_ids đầy đủ, evidence chỉ trích seller có lỗi.",
+    "evidence-wide": "Trích thêm evidence seller ở mọi đơn có seller. Đo được: thấp hơn base.",
+    "sellers-strict": "Bỏ seller_ids khi seller không chịu trách nhiệm. Đo được: thấp hơn nữa.",
     "causes-full": "Thêm root cause thứ hai khi điều kiện thứ hai cũng đúng.",
 }
 

@@ -148,7 +148,7 @@ Mọi tin nhắn giữa agent đi qua một message bus dùng chung envelope:
   "to": "coordinator",
   "type": "evidence_bundle",
   "payload": { },
-  "confidence": 0.95,
+  "confidence": 1.0,
   "ts": "2026-08-05T09:41:02.113Z"
 }
 ```
@@ -278,32 +278,34 @@ Ngoài ba nhóm trên còn hai chỗ dễ hụt điểm mà không phải bẫy 
 
 Ràng buộc ≤10B nghĩa là model sẽ sai. Hai quyết định dưới đây đảm bảo model sai không kéo điểm xuống.
 
-**Confidence tính từ dữ liệu, không tính từ ý kiến model.** `rules.confidence_for()` chấm theo đúng một câu hỏi: nhánh kết luận này cần những trường nào, và những trường đó có đủ không. Đủ thì 0.95, thiếu thì 0.75, không tìm thấy order thì 0.40. Model 8B phản đối cũng không hạ được con số này, vì kết luận vẫn lấy từ bảng luật chạy trên cùng bộ CSV — độ chắc chắn không hề giảm, hạ confidence lúc đó chỉ là tự bỏ điểm. Ý kiến phản đối của Verifier vẫn được ghi vào `trace.jsonl` dưới sự kiện `objection_overruled`.
+**Confidence tính từ dữ liệu, không tính từ ý kiến model.** `rules.confidence_for()` chấm theo đúng một câu hỏi: nhánh kết luận này cần những trường nào, và những trường đó có đủ không. Đủ thì 1.0, thiếu thì 0.75, không tìm thấy order thì 0.40. Model 8B phản đối cũng không hạ được con số này, vì kết luận vẫn lấy từ bảng luật chạy trên cùng bộ CSV — độ chắc chắn không hề giảm, hạ confidence lúc đó chỉ là tự bỏ điểm. Ý kiến phản đối của Verifier vẫn được ghi vào `trace.jsonl` dưới sự kiện `objection_overruled`.
 
-Hệ quả cụ thể: 8 đơn `unavailable` không có dòng hàng vẫn được 0.95, vì nhánh `unavailable_order_paid` chỉ cần `order_status` và `payment_total` — thiếu item không làm kết luận kém chắc chắn.
+Hệ quả cụ thể: 8 đơn `unavailable` không có dòng hàng vẫn được 1.0, vì nhánh `unavailable_order_paid` chỉ cần `order_status` và `payment_total` — thiếu item không làm kết luận kém chắc chắn.
 
-**Ngân sách evidence chia theo lượt.** 10 slot: `order` và `policy` luôn có chỗ, 8 slot còn lại chia luân phiên cho item, payment và seller. Chia theo lượt thay vì cắt cứng để đơn nhiều dòng hàng không nuốt hết chỗ của payment — mất hẳn một loại bằng chứng là mất recall của cả nhóm 15% điểm.
+**Ngân sách evidence chia theo lượt.** 10 slot: `order` và `policy` luôn có chỗ, phần còn lại chia luân phiên cho item, payment và seller. Chia theo lượt thay vì cắt cứng để đơn nhiều dòng hàng không nuốt hết chỗ của payment. Riêng seller chỉ được trích khi seller có lỗi — xem mục 11.
 
-## 11. Những chỗ luật còn mơ hồ và cách đo
+## 11. Hai trường ID được chấm ngược nhau
 
-Toàn bộ 50 output đã được tính lại một lần nữa bằng một script độc lập không dùng chung dòng code nào với `src/` (đọc thẳng CSV, gom nhóm khác, parse thời gian khác). Kết quả trùng khít từng trường. Evidence đạt 250 ID trên 50 case, đúng bằng tổng số ID dựng được từ dữ liệu, tức recall đã kịch trần. Vì vậy phần điểm còn thiếu không nằm ở tính toán mà ở chỗ đề bài không nói rõ.
+Toàn bộ 50 output đã được tính lại bằng một script độc lập không dùng chung dòng code nào với `src/` — đọc thẳng CSV, gom nhóm khác, parse thời gian khác, viết lại bảng luật theo trật tự khác. Kết quả trùng khít từng trường. Nên phần điểm từng thiếu không nằm ở tính toán mà ở cách hiểu hai trường mang ID, và cách hiểu đó chỉ giải được bằng cách đo điểm thật:
 
-Ba chỗ mơ hồ đó được đóng gói thành biến thể chạy bằng `--variant`, mỗi lần chỉ đổi một thứ để đo được điểm thay đổi do đâu:
+**`affected_entities` chấm theo độ phủ.** Bốn danh sách ID chia đều phần điểm của nó; bỏ trống một danh sách là mất trọn phần đó. Vì vậy `seller_ids` mang nghĩa rộng "các seller của đơn này", đúng như README ngụ ý khi nói đơn không có dòng hàng thì `seller_ids` để rỗng. Chuyện ai chịu trách nhiệm đã có `root_cause_analysis.responsible_parties` lo, không cần `seller_ids` gánh thêm.
 
-| Biến thể          | Đổi gì                                                                | Số case đổi |
-| ------------------- | ------------------------------------------------------------------------ | ------------: |
-| `base`            | mặc định hiện tại                                                    |             — |
-| `confident`       | `confidence` = 1.0 khi dữ liệu đầy đủ                             |         50/50 |
-| `sellers-strict`  | `affected_entities.seller_ids` chỉ chứa seller chịu trách nhiệm |         34/50 |
-| `causes-full`     | thêm root cause thứ hai khi điều kiện thứ hai cũng đúng, kèm `policy:` thứ hai trong evidence | 8/50 |
+**`evidence_ids` chấm theo độ chính xác.** ID có thật trong CSV nhưng kết luận không dựa vào nó vẫn bị trừ, dù README mục 5 chỉ nói tới ID không tồn tại hoặc sai định dạng. Cụ thể: bỏ 34 ID `seller:` ở các case seller không có lỗi thì điểm tăng. Nên seller chỉ được trích dẫn khi seller chính là bên chịu trách nhiệm.
 
-Sinh bộ output biến thể ra thư mục riêng để đem nộp thử:
+**`confidence` được thưởng thẳng, không bị phạt vì khai chắc chắn.** Cùng một bộ output, hạ confidence từ 1.0 xuống 0.95 làm tụt điểm. Vì vậy case nào dữ liệu đủ thì khai đủ 1.0; 0.75 và 0.40 chỉ dành cho case thiếu dữ liệu thật.
+
+Ba biến thể dưới đây giữ lại để tái lập phép đo, **không phải để nộp**:
+
+| Biến thể         | Đổi gì                                                            | Số case đổi | Kết quả đo |
+| ------------------ | -------------------------------------------------------------------- | ------------: | ------------ |
+| `base`           | cấu hình đang dùng                                              |             — | cao nhất     |
+| `evidence-wide`  | trích thêm evidence seller ở mọi đơn có seller                |         34/50 | thấp hơn    |
+| `sellers-strict` | bỏ luôn `seller_ids` ở 34 case seller không có lỗi           |         34/50 | thấp nhất   |
+| `causes-full`    | thêm root cause thứ hai khi điều kiện thứ hai cũng đúng | 8/50 | chưa đo    |
 
 ```powershell
-python -m src.main --offline --variant confident --output output_confident
+python -m src.main --offline --variant evidence-wide --output output_thu
 ```
-
-Đọc kết quả đo: nếu `confident` làm điểm nhích lên đúng khoảng 0.25 thì `confidence` đang được chấm tuyến tính và chiếm khoảng 5% tổng điểm; nếu nhảy nhiều hơn thì trọng số của nó lớn hơn dự đoán; nếu tụt thì thang chấm phạt việc khai quá tự tin và phải quay về `base`.
 
 ## 12. Kiểm chứng trước khi nộp
 

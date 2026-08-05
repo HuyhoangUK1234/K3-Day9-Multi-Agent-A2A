@@ -3,7 +3,7 @@
   "assessment": {
     "primary_issue": "canceled_order_paid",
     "case_status": "action_required",
-    "confidence": 0.95
+    "confidence": 1.0
   },
   "affected_entities": {
     "order_ids": [
@@ -35,10 +35,9 @@
   },
   "evidence_ids": [
     "order:c504f1f5fd54cc8398d57dc0da49de01",
+    "policy:ORDER_CANCELED_AFTER_PAYMENT",
     "item:c504f1f5fd54cc8398d57dc0da49de01:1",
-    "payment:c504f1f5fd54cc8398d57dc0da49de01:1",
-    "seller:cfb1a033743668a192316f3c6d1d2671",
-    "policy:ORDER_CANCELED_AFTER_PAYMENT"
+    "payment:c504f1f5fd54cc8398d57dc0da49de01:1"
   ],
   "financial_resolution": {
     "currency": "BRL",

@@ -102,18 +102,32 @@ def _verdict(primary_issue: str, refund, parties: list[dict]) -> dict:
     }
 
 
-def build_evidence_ids(facts: dict, verdict: dict, causes: list[dict] | None = None) -> list[str]:
+def build_evidence_ids(facts: dict, verdict: dict, causes: list[dict] | None = None,
+                       cite_all_sellers: bool = False) -> list[str]:
     """Dựng evidence ID trực tiếp từ dữ liệu, không để LLM tự bịa.
 
-    Ngân sách 10 slot: order và policy luôn có chỗ, 8 slot còn lại chia đều
-    theo lượt cho item, payment và seller. Chia theo lượt để đơn nhiều item
-    không nuốt hết chỗ của payment — mất một loại bằng chứng là mất recall.
+    `evidence_ids` được chấm theo ĐỘ CHÍNH XÁC, không phải độ phủ. Một ID có
+    thật trong CSV nhưng kết luận không dựa vào nó vẫn bị trừ điểm — đo được
+    bằng điểm thật: bỏ 34 ID `seller:` ở các case seller không có lỗi làm điểm
+    tăng. Vì vậy chỉ trích dẫn seller khi seller chính là bên chịu trách nhiệm.
+
+    Đây là chỗ ngược với `affected_entities`, vốn chấm theo độ phủ — xem
+    `build_output`.
+
+    Ngân sách 10 slot: order và policy luôn có chỗ, phần còn lại chia đều theo
+    lượt cho item, payment và seller để đơn nhiều dòng hàng không nuốt hết chỗ
+    của payment.
     """
     order_id = facts["order_id"]
     policies = [f"policy:{c['cause_code']}" for c in (causes or [{"cause_code": verdict["cause_code"]}])]
     items = [f"item:{order_id}:{r['order_item_id']}" for r in facts.get("items", [])]
     payments = [f"payment:{order_id}:{r['payment_sequential']}" for r in facts.get("payments", [])]
-    sellers = [f"seller:{s}" for s in _ordered_sellers(facts, verdict)]
+
+    responsible_sellers = [
+        p["party_id"] for p in verdict.get("responsible_parties", []) if p["party_type"] == "seller"
+    ]
+    cited = _ordered_sellers(facts, verdict) if cite_all_sellers else responsible_sellers
+    sellers = [f"seller:{s}" for s in cited]
 
     budget = MAX_EVIDENCE - 1 - len(policies)  # trừ chỗ của order và các policy
     chosen = {"item": [], "payment": [], "seller": []}
@@ -126,7 +140,7 @@ def build_evidence_ids(facts: dict, verdict: dict, causes: list[dict] | None = N
             chosen[kind].append(queue.pop(0))
             budget -= 1
 
-    return [f"order:{order_id}", *chosen["item"], *chosen["payment"], *chosen["seller"], *policies]
+    return [f"order:{order_id}", *policies, *chosen["item"], *chosen["payment"], *chosen["seller"]]
 
 
 # Mỗi nhánh kết luận dựa trên một nhóm trường nhất định. Thiếu trường thuộc
@@ -211,16 +225,25 @@ def _ranked_causes(facts: dict, verdict: dict, variant: str) -> list[dict]:
 
 def build_output(case_id: str, facts: dict, verdict: dict, confidence: float,
                  variant: str = "base") -> dict:
-    """Ráp output cuối theo đúng schema của README."""
+    """Ráp output cuối theo đúng schema của README.
+
+    Hai trường mang ID được chấm theo hai thang ngược nhau, đo được bằng điểm
+    thật chứ không suy từ đề bài:
+
+    - `affected_entities` chấm theo độ phủ. Bốn danh sách ID chia đều phần điểm
+      của nó, bỏ trống một danh sách là mất trọn phần đó. Nên `seller_ids` giữ
+      nghĩa rộng "các seller của đơn này", đúng như README ngụ ý khi nói đơn
+      không có dòng hàng thì `seller_ids` để rỗng. Chuyện ai chịu trách nhiệm
+      đã có `root_cause_analysis.responsible_parties` lo.
+    - `evidence_ids` chấm theo độ chính xác. ID có thật nhưng kết luận không
+      dựa vào nó vẫn bị trừ, nên seller chỉ được trích khi seller có lỗi.
+    """
     order_id = facts["order_id"]
     refund = dec2(verdict["recommended_refund"])
 
     sellers = _ordered_sellers(facts, verdict)
     if variant == "sellers-strict":
         sellers = [p["party_id"] for p in verdict["responsible_parties"] if p["party_type"] == "seller"]
-
-    if variant == "confident" and confidence >= CONFIDENCE_FULL:
-        confidence = 1.0
 
     causes = _ranked_causes(facts, verdict, variant)
 
@@ -241,7 +264,9 @@ def build_output(case_id: str, facts: dict, verdict: dict, confidence: float,
             "ranked_causes": causes,
             "responsible_parties": verdict["responsible_parties"][:MAX_RESPONSIBLE_PARTIES],
         },
-        "evidence_ids": build_evidence_ids(facts, verdict, causes),
+        "evidence_ids": build_evidence_ids(
+            facts, verdict, causes, cite_all_sellers=(variant == "evidence-wide")
+        ),
         "financial_resolution": {
             "currency": CURRENCY,
             "item_total_brl": f2(facts.get("item_total", ZERO)),

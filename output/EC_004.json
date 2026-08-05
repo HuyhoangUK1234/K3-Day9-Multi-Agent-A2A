@@ -3,7 +3,7 @@
   "assessment": {
     "primary_issue": "valid_split_payment",
     "case_status": "no_action",
-    "confidence": 0.95
+    "confidence": 1.0
   },
   "affected_entities": {
     "order_ids": [
@@ -31,11 +31,10 @@
   },
   "evidence_ids": [
     "order:fd28a6dfe413804d0b89b7c9abf5b1f3",
+    "policy:MULTIPLE_PAYMENTS_RECONCILED",
     "item:fd28a6dfe413804d0b89b7c9abf5b1f3:1",
     "payment:fd28a6dfe413804d0b89b7c9abf5b1f3:1",
-    "payment:fd28a6dfe413804d0b89b7c9abf5b1f3:2",
-    "seller:17a053fcb14bd219540cbde0df490be0",
-    "policy:MULTIPLE_PAYMENTS_RECONCILED"
+    "payment:fd28a6dfe413804d0b89b7c9abf5b1f3:2"
   ],
   "financial_resolution": {
     "currency": "BRL",

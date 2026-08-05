@@ -50,7 +50,7 @@
     "python": "3.14.6",
     "os": "Windows 11",
     "cases": 50,
-    "wall_clock_seconds": 1.6,
+    "wall_clock_seconds": 1.5,
     "mode": "offline_rule_engine"
   }
 }

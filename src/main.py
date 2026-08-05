@@ -109,6 +109,14 @@ def write_metadata(runtime_s: float, case_count: int, offline: bool) -> None:
 
 
 def main() -> int:
+    # Console Windows mặc định là cp1252, in tiếng Việt vào đó là crash cả lượt
+    # chạy. Ép UTF-8 để log không bao giờ giết được job.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", default=str(INPUT_DIR))
     parser.add_argument("--output", default=str(OUTPUT_DIR))
