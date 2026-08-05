@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+output.zip
+output_confident/
+output_sellers_strict/
+output_causes_full/

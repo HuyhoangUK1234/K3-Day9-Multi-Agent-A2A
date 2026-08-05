@@ -1,0 +1,56 @@
+{
+  "system": "K3 Day 09 - Multi-Agent E-commerce Dispute Resolution",
+  "policy_version": "EC_POLICY_V1",
+  "framework": "Python thuần, orchestrator tự viết, OpenAI SDK làm client cho cả OpenAI và Groq",
+  "agents": [
+    {
+      "agent": "coordinator",
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "parameter_size": "not_disclosed",
+      "temperature": 0.0
+    },
+    {
+      "agent": "order_seller_agent",
+      "provider": "groq",
+      "model": "llama-3.1-8b-instant",
+      "parameter_size": "8B",
+      "temperature": 0.0
+    },
+    {
+      "agent": "payment_agent",
+      "provider": "groq",
+      "model": "gemma2-9b-it",
+      "parameter_size": "9B",
+      "temperature": 0.0
+    },
+    {
+      "agent": "delivery_agent",
+      "provider": "groq",
+      "model": "llama-3.1-8b-instant",
+      "parameter_size": "8B",
+      "temperature": 0.0
+    },
+    {
+      "agent": "policy_agent",
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "parameter_size": "not_disclosed",
+      "temperature": 0.0
+    },
+    {
+      "agent": "verifier_agent",
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "parameter_size": "not_disclosed",
+      "temperature": 0.0
+    }
+  ],
+  "runtime": {
+    "python": "3.14.6",
+    "os": "Windows 11",
+    "cases": 50,
+    "wall_clock_seconds": 1.6,
+    "mode": "offline_rule_engine"
+  }
+}
