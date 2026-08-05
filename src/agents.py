@@ -253,21 +253,19 @@ def policy_agent(
     llm_issue = parsed.get("primary_issue")
 
     # The deterministic engine is authoritative. The LLM's job is to agree or to
-    # signal doubt; a disagreement lowers confidence but never changes the answer.
+    # signal doubt; the disagreement is recorded in the trace but it does NOT
+    # move confidence — an 8B model failing to follow a priority-ordered rule
+    # table says nothing about how well the ruling is evidenced.
     #
-    # Confidence tracks how well-evidenced the ruling is, NOT whether an 8B model
-    # happened to agree. When every field the rule depends on is present in the
-    # CSVs the ruling is certain, so a model disagreement only shaves a little.
+    # Confidence therefore tracks evidence completeness only.
     agrees = llm_issue == truth.primary_issue
-    confidence = 0.97 if agrees else 0.90
 
     if not facts.exists:
         # No order row means nothing can be evidenced at all.
         confidence = 0.40
     else:
         blocking = _blocking_gaps(facts, truth)
-        if blocking:
-            confidence = min(confidence, 0.80)
+        confidence = 0.80 if blocking else 0.97
 
     handoff = Handoff(
         agent="policy",
