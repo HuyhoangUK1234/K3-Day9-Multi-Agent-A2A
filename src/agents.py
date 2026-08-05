@@ -121,7 +121,7 @@ def payment_agent(client: LLMClient, case_id: str, facts: OrderFacts) -> Handoff
 
     missing = [] if facts.payments else ["order has no payment rows"]
     evidence = [f"payment:{facts.order_id}:{p.payment_sequential}" for p in facts.payments[:5]]
-
+    # TODO: fix logic 
     return Handoff(
         agent="payment",
         ticket_id=case_id,
