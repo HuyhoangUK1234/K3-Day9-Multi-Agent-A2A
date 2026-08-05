@@ -15,9 +15,8 @@ venv/
 .cache/
 .llm_cache/
 
-# Submission artifact — built by script, not tracked
-submission.zip
-output.zip
+# Submission artifacts — rebuilt by make_zip.py, not tracked
+*.zip
 
 # OS / editor
 .DS_Store
